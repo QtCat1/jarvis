@@ -165,7 +165,22 @@ def status_report(_: str = "") -> str:
     )
 
 
+def update_self(_: str = "") -> str:
+    """Download the newest version of Jarvis from GitHub and restart."""
+    from . import update as u
+
+    status = u.apply_update(log=lambda m: None)
+    if status == "updated":
+        if u.schedule_restart():
+            return "Update installed, sir. Restarting now; I'll be back in a few seconds."
+        return "Update installed, sir. Please start me again to use it."
+    if status == "current":
+        return "I'm already running the latest version, sir."
+    return "I couldn't update just now: " + u.LAST_ERROR
+
+
 TOOLS = {
+    "update_self": (update_self, "Update Jarvis to the newest version from GitHub and restart. No input."),
     "weather": (weather, "Current weather. Input: city name."),
     "wiki": (wiki, "Wikipedia summary. Input: topic."),
     "joke": (joke, "Tell a joke. No input."),

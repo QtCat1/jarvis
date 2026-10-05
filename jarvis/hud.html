@@ -123,6 +123,11 @@ async function ask(text){
     if(!r.ok)throw 0; reply=(await r.json()).reply;
   }catch(e){reply=await localBrain(text)}
   add("ai",reply);await speak(reply);
+  if(/restarting now/i.test(reply)){           // updated: wait for the new Jarvis, then reload
+    setState("thinking");
+    const wait=async()=>{try{const r=await fetch("/api/status");if(r.ok){location.reload();return}}catch(e){}setTimeout(wait,1500)};
+    setTimeout(wait,4000);
+  }
 }
 
 /* ---------- speech in ---------- */

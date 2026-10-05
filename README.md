@@ -43,6 +43,13 @@ screen, use the browser menu, then Add to Home screen.
 
 ## Updating
 
+**Automatic:** Jarvis checks GitHub every time it starts (at most once an hour) and every few
+hours while the HUD is open. When there's a new version it installs it and restarts itself,
+only when you haven't spoken to it for two minutes. You can also say "update yourself".
+Turn this off by creating an empty file called `.jarvis_no_autoupdate` in the Jarvis folder.
+
+**Manual:**
+
 Double-click **update.bat** (or run `python -m jarvis --update`). Jarvis downloads the newest
 files from https://github.com/QtCat1/jarvis, keeps a backup of anything it replaces in
 `_backup_before_update`, and never touches your notes.

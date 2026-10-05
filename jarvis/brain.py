@@ -27,6 +27,8 @@ def _offline(message: str) -> str:
     m = re.sub(r"^\s*(hey |ok |okay )?jarvis[,.!:]?\s*", "", m, flags=re.I)
     low = m.lower()
 
+    if re.search(r"(update|upgrade) (yourself|jarvis|your software)|check (for )?(an )?updates?|any updates", low):
+        return run_tool("update_self")
     if re.search(r"\b(status|diagnostic|systems check|report)\b", low):
         return run_tool("status_report")
     if re.search(r"\bjoke\b", low):

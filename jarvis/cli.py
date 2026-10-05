@@ -1,22 +1,41 @@
-"""Command-line interface: `python -m jarvis [--voice]`"""
+"""Command-line interface: `python -m jarvis [--hud] [--lan] [--voice] [--update]`
+
+Running Jarvis starts a small supervisor that (1) checks GitHub for a newer version,
+(2) starts the real Jarvis, and (3) restarts it automatically after an update.
+"""
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 
 from .brain import Jarvis
 
 
-def main() -> None:
-    if "--update" in sys.argv:
-        from .update import update
+def _supervise(argv: list) -> int:
+    from .update import PROJECT_ROOT, RESTART_CODE, auto_check
 
-        sys.exit(update())
-    if "--hud" in sys.argv:
+    auto_check(log=print)  # quiet unless there's an update or a problem worth mentioning
+    env = dict(os.environ, JARVIS_CHILD="1")
+    while True:
+        try:
+            code = subprocess.call(
+                [sys.executable, "-m", "jarvis"] + argv, env=env, cwd=str(PROJECT_ROOT)
+            )
+        except KeyboardInterrupt:
+            return 0
+        if code != RESTART_CODE:
+            return code
+        print("\nRestarting Jarvis with the new version...\n")
+
+
+def _run(argv: list) -> None:
+    if "--hud" in argv:
         from .server import serve
 
-        serve(lan="--lan" in sys.argv)
+        serve(lan="--lan" in argv)
         return
-    use_voice = "--voice" in sys.argv
+    use_voice = "--voice" in argv
     jarvis = Jarvis()
     voice = None
     if use_voice:
@@ -60,6 +79,17 @@ def main() -> None:
         print(f"jarvis> {reply}")
         if voice:
             voice.speak(reply)
+
+
+def main() -> None:
+    argv = sys.argv[1:]
+    if "--update" in argv:
+        from .update import update
+
+        sys.exit(update())
+    if os.environ.get("JARVIS_CHILD") != "1":
+        sys.exit(_supervise(argv))
+    _run(argv)
 
 
 if __name__ == "__main__":

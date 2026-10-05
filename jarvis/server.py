@@ -6,9 +6,11 @@ Default: localhost only (this computer).
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import socket
 import threading
+import time
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,6 +23,22 @@ _lock = threading.Lock()
 _jarvis = Jarvis()
 PIN: str | None = None  # set when running with --lan
 COOKIE = "jarvis_pin"
+_last_request = 0.0
+UPDATE_EVERY = float(os.environ.get("JARVIS_UPDATE_HOURS", "6")) * 3600
+
+
+def _auto_update_loop() -> None:
+    """While the HUD runs, look for updates every few hours and restart when idle."""
+    from . import update as u
+
+    while True:
+        time.sleep(UPDATE_EVERY)
+        if not u.auto_enabled():
+            continue
+        while time.time() - _last_request < 120:  # never restart mid-conversation
+            time.sleep(30)
+        if u.apply_update(log=lambda m: None, timeout=30) == "updated":
+            u.schedule_restart(0.5)
 
 
 def lan_ip() -> str:
@@ -83,6 +101,8 @@ class Handler(BaseHTTPRequestHandler):
             message = json.loads(self.rfile.read(n) or b"{}").get("message", "")
         except Exception:
             return self._send(400, b'{"error":"bad request"}', "application/json")
+        global _last_request
+        _last_request = time.time()
         with _lock:
             reply = _jarvis.ask(str(message)[:2000])
         self._send(200, json.dumps({"reply": reply, "mode": _jarvis.mode}).encode(), "application/json")
@@ -97,6 +117,7 @@ def serve(port: int = 8765, lan: bool = False) -> None:
     if lan:
         PIN = "".join(secrets.choice("0123456789") for _ in range(6))
     srv = ThreadingHTTPServer((host, port), Handler)
+    threading.Thread(target=_auto_update_loop, daemon=True).start()
     print(f"\nJarvis HUD  (mode: {_jarvis.mode})   Ctrl+C to stop")
     print(f"  On this computer:  http://127.0.0.1:{port}")
     if lan:
