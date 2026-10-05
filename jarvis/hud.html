@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#02070d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>J.A.R.V.I.S.</title>
+<style>
+  :root{--c:#35e0ff;--c2:#0a7a99;--bg:#02070d;--warn:#ffb347}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:radial-gradient(ellipse at 50% 35%,#07202e 0%,var(--bg) 65%);color:var(--c);font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+  body::before{content:"";position:fixed;inset:0;background:repeating-linear-gradient(0deg,rgba(53,224,255,.03) 0 1px,transparent 1px 3px);pointer-events:none}
+  .wrap{display:grid;grid-template-rows:auto 1fr auto;height:100%;max-width:900px;margin:0 auto;padding:14px 16px;gap:10px}
+  header{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.2em;color:var(--c2);text-transform:uppercase}
+  header b{color:var(--c)}
+  .core{position:relative;display:grid;place-items:center;min-height:200px}
+  svg{width:min(52vw,300px);height:auto;filter:drop-shadow(0 0 14px rgba(53,224,255,.55))}
+  .ring{transform-origin:150px 150px;fill:none;stroke:var(--c);}
+  .r1{animation:spin 18s linear infinite;stroke-width:2;stroke-dasharray:6 10}
+  .r2{animation:spin 11s linear infinite reverse;stroke-width:3;stroke-dasharray:40 14 8 14}
+  .r3{animation:spin 7s linear infinite;stroke-width:1.5;stroke-dasharray:2 6}
+  .tri{fill:none;stroke:var(--c);stroke-width:2;transform-origin:150px 150px;animation:spin 25s linear infinite reverse}
+  .glow{fill:var(--c);opacity:.9;transform-origin:150px 150px;animation:pulse 3s ease-in-out infinite}
+  body[data-state=listening] .glow{animation-duration:.9s;fill:#7dffb0}
+  body[data-state=thinking] .r2{animation-duration:2s}
+  body[data-state=thinking] .glow{fill:var(--warn);animation-duration:.5s}
+  body[data-state=speaking] .glow{animation-duration:.45s}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulse{50%{transform:scale(1.18);opacity:.55}}
+  .state{position:absolute;bottom:0;font-size:12px;letter-spacing:.35em;text-transform:uppercase}
+  #log{overflow-y:auto;border:1px solid rgba(53,224,255,.25);border-radius:6px;background:rgba(3,20,30,.6);padding:10px 12px;font-size:13px;line-height:1.5;display:flex;flex-direction:column;gap:6px}
+  .me{color:#9fdcec;opacity:.8}.me::before{content:"> "}
+  .ai{color:var(--c)}.ai::before{content:"JARVIS: ";color:var(--c2)}
+  footer{display:flex;gap:8px;align-items:center}
+  input{flex:1;background:rgba(3,20,30,.8);border:1px solid rgba(53,224,255,.4);color:var(--c);padding:12px;border-radius:6px;font:inherit;font-size:16px;outline:none}
+  input:focus{border-color:var(--c);box-shadow:0 0 10px rgba(53,224,255,.35)}
+  button{background:transparent;border:1px solid var(--c);color:var(--c);padding:11px 14px;border-radius:6px;font:inherit;cursor:pointer}
+  button.on{background:var(--c);color:var(--bg)}
+  .hint{font-size:11px;color:var(--c2);text-align:center}
+</style>
+</head>
+<body data-state="idle">
+<div class="wrap">
+  <header><span><b>J.A.R.V.I.S.</b> // stark industries</span><span id="clock"></span></header>
+  <div class="core">
+    <svg viewBox="0 0 300 300" aria-hidden="true">
+      <circle class="ring r1" cx="150" cy="150" r="140"/>
+      <circle class="ring r2" cx="150" cy="150" r="115"/>
+      <circle class="ring r3" cx="150" cy="150" r="92"/>
+      <polygon class="tri" points="150,72 218,190 82,190"/>
+      <circle class="glow" cx="150" cy="150" r="26"/>
+      <circle cx="150" cy="150" r="10" fill="#fff"/>
+    </svg>
+    <div class="state" id="stateTxt">standby</div>
+  </div>
+  <div id="log"></div>
+  <footer>
+    <button id="mic" title="Hold a conversation">🎙 Mic</button>
+    <button id="wake" title="Always listen for the word Jarvis">Wake word</button>
+    <input id="in" placeholder="Say &quot;Jarvis…&quot; or type here" autocomplete="off">
+    <button id="send">Send</button>
+  </footer>
+  <div class="hint" id="hint"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id), log=$("log");
+const setState=s=>{document.body.dataset.state=s;$("stateTxt").textContent=s==="idle"?"standby":s};
+setInterval(()=>$("clock").textContent=new Date().toLocaleTimeString(),1000);
+
+function add(cls,t){const d=document.createElement("div");d.className=cls;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight}
+
+/* ---------- speech out ---------- */
+let voice=null;
+function pickVoice(){const v=speechSynthesis.getVoices();
+  voice=v.find(x=>/en-GB/i.test(x.lang)&&/male|daniel|arthur|google uk/i.test(x.name))||v.find(x=>/en-GB/i.test(x.lang))||v.find(x=>/^en/i.test(x.lang))||null}
+if("speechSynthesis" in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
+function speak(t){
+  return new Promise(res=>{
+    if(!("speechSynthesis" in window)){res();return}
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(t);if(voice)u.voice=voice;u.rate=1.02;u.pitch=.9;
+    u.onstart=()=>setState("speaking");u.onend=u.onerror=()=>{setState(wakeOn||micOn?"listening":"idle");res()};
+    speechSynthesis.speak(u);
+  });
+}
+
+/* ---------- brain: server first, in-browser fallback ---------- */
+const jokes=["I would tell you a UDP joke, but you might not get it.","Why do programmers prefer dark mode? Because light attracts bugs.","There are 10 kinds of people: those who understand binary, and those who don't."];
+let timers=[];
+async function localBrain(m){
+  const low=m.toLowerCase();
+  let t=low.match(/timer (?:for )?(\d+)\s*(second|minute|hour)/);
+  if(t){const ms=+t[1]*({second:1,minute:60,hour:3600}[t[2]])*1000;
+    setTimeout(()=>{const msg="Sir, your "+t[1]+" "+t[2]+" timer has finished.";add("ai",msg);speak(msg)},ms);
+    return `Timer set for ${t[1]} ${t[2]}${+t[1]>1?"s":""}.`}
+  if(/time|date/.test(low))return new Date().toLocaleString([], {dateStyle:"full",timeStyle:"short"});
+  if(/joke/.test(low))return jokes[Math.floor(Math.random()*jokes.length)];
+  if(/status|diagnostic|report/.test(low))return "All systems nominal, sir. Arc reactor at one hundred percent.";
+  const c=low.replace(/^(what is|what's|calculate|compute)\s*/,"").replace(/\^/g,"**").replace(/\?$/,"");
+  if(/^[\d\s+\-*/().%]+$/.test(c)&&/\d/.test(c)){try{return String(Function('"use strict";return ('+c+')')())}catch(e){}}
+  const w=low.match(/weather(?: in| for| at)?\s*(.*)$/);
+  if(w){try{const city=w[1].replace(/[?.!]/g,"").trim()||"Karachi";
+    const g=(await (await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&name="+encodeURIComponent(city))).json()).results?.[0];
+    if(!g)return "I couldn't find "+city+".";
+    const cur=(await (await fetch(`https://api.open-meteo.com/v1/forecast?current=temperature_2m,wind_speed_10m&latitude=${g.latitude}&longitude=${g.longitude}`)).json()).current;
+    return `${g.name}: ${cur.temperature_2m}°C, wind ${cur.wind_speed_10m} km/h.`}catch(e){return "The weather service is unreachable."}}
+  const q=m.match(/^(?:who is|who was|tell me about|look up)\s+(.+?)[?.!]*$/i);
+  if(q){try{const d=await (await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(q[1].replace(/ /g,"_")))).json();
+    return (d.extract||"Nothing found.").slice(0,400)}catch(e){return "I couldn't reach Wikipedia."}}
+  if(/\b(hi|hello|hey)\b/.test(low))return "At your service, sir.";
+  return "Standalone mode, sir. Start the Jarvis server for my full capabilities.";
+}
+async function ask(text){
+  text=text.replace(/^\s*(hey |ok |okay )?jarvis[,.!:]?\s*/i,"").trim();
+  if(!text){const r="Yes, sir?";add("ai",r);speak(r);return}
+  add("me",text);setState("thinking");
+  let reply;
+  try{
+    const r=await fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:text})});
+    if(!r.ok)throw 0; reply=(await r.json()).reply;
+  }catch(e){reply=await localBrain(text)}
+  add("ai",reply);await speak(reply);
+}
+
+/* ---------- speech in ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null,micOn=false,wakeOn=false;
+function startRec(){
+  if(!SR){$("hint").textContent="Voice input isn't supported in this browser. Try Chrome or Edge, or type.";return}
+  if(rec)return;
+  rec=new SR();rec.lang="en-US";rec.continuous=true;rec.interimResults=false;
+  rec.onresult=e=>{
+    const t=e.results[e.results.length-1][0].transcript.trim();
+    if(speechSynthesis.speaking)return;           // ignore own voice
+    if(wakeOn&&!micOn){ if(/\bjarvis\b/i.test(t))ask(t) } else ask(t);
+  };
+  rec.onstart=()=>setState("listening");
+  rec.onend=()=>{rec=null;if(micOn||wakeOn)setTimeout(startRec,300);else setState("idle")};
+  rec.onerror=e=>{if(e.error==="not-allowed"){micOn=wakeOn=false;sync();$("hint").textContent="Microphone permission denied."}};
+  try{rec.start()}catch(e){}
+}
+function sync(){$("mic").classList.toggle("on",micOn);$("wake").classList.toggle("on",wakeOn);
+  if(!micOn&&!wakeOn&&rec){const r=rec;rec=null;r.onend=null;r.stop();setState("idle")}}
+$("mic").onclick=()=>{micOn=!micOn;if(micOn)wakeOn=false;sync();if(micOn)startRec()};
+$("wake").onclick=()=>{wakeOn=!wakeOn;if(wakeOn)micOn=false;sync();if(wakeOn){startRec();$("hint").textContent='Listening for "Jarvis…"'}};
+
+/* ---------- text input ---------- */
+const go=()=>{const v=$("in").value;$("in").value="";if(v.trim())ask(v)};
+$("send").onclick=go;$("in").onkeydown=e=>{if(e.key==="Enter")go()};
+
+/* ---------- boot ---------- */
+(async()=>{
+  setState("thinking");
+  let mode="standalone";
+  try{mode=(await (await fetch("/api/status")).json()).mode}catch(e){}
+  const greet=`Good ${new Date().getHours()<12?"morning":new Date().getHours()<18?"afternoon":"evening"}, sir. J.A.R.V.I.S. online${mode==="claude"?", running on Claude":mode==="offline"?"":" in standalone mode"}.`;
+  add("ai",greet);setState("idle");
+  if(SR&&!window.isSecureContext)$("hint").textContent="Mic is blocked on http links. Use your phone keyboard's mic key to talk, or type.";else $("hint").textContent=SR?"Click anywhere once to enable audio, then use Mic or Wake word.":"Voice input needs Chrome or Edge.";
+  // browsers block autoplay speech until a click
+  document.addEventListener("click",function f(){speak(greet);document.removeEventListener("click",f)},{once:true});
+})();
+</script>
+</body>
+</html>

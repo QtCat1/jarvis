@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+_backup_before_update/
+.jarvis_token
