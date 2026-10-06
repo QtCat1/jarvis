@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import re
 
+from . import memory
 from .tools import TOOLS, run_tool
 
 MODEL = os.environ.get("JARVIS_MODEL", "claude-sonnet-5-5")
@@ -17,6 +18,13 @@ SYSTEM = (
     "You are J.A.R.V.I.S., a dry-witted, impeccably polite British AI butler. "
     "Address the user as 'sir' occasionally. Be concise: replies are spoken aloud, "
     "so use one to three short sentences and no markdown. Use tools when they help."
+)
+
+
+_FORGET_RE = re.compile(r"\b(forget|clear|erase|delete|wipe)\b.*\b(memory|memories|conversations?|chat history|everything)\b", re.I)
+_RECALL_RE = re.compile(
+    r"what (did|have) (we|i)\b|do you remember|remind me what|\brecall\b|our (last |previous )?(chat|conversation)s?\b|conversation history",
+    re.I,
 )
 
 
@@ -29,6 +37,10 @@ def _offline(message: str) -> str:
 
     if re.search(r"(update|upgrade) (yourself|jarvis|your software)|check (for )?(an )?updates?|any updates", low):
         return run_tool("update_self")
+    if _FORGET_RE.search(low):
+        return run_tool("clear_memory")
+    if _RECALL_RE.search(low):
+        return run_tool("recall", m)
     if re.search(r"\b(status|diagnostic|systems check|report)\b", low):
         return run_tool("status_report")
     if re.search(r"\bjoke\b", low):
@@ -94,6 +106,29 @@ class Jarvis:
         ]
 
     def ask(self, message: str) -> str:
+        reply = self._answer(message)
+        if not (_FORGET_RE.search(message) or _RECALL_RE.search(message)):  # don't save memory commands
+            try:
+                memory.add("user", message)
+                memory.add("jarvis", reply)
+            except Exception:
+                pass  # memory must never break a conversation
+        return reply
+
+    def _system(self) -> str:
+        try:
+            past = memory.context_block()
+        except Exception:
+            past = ""
+        if not past:
+            return SYSTEM
+        return (
+            SYSTEM
+            + "\n\nYour memory of this user's conversations over the past week (oldest first). "
+            "Use it naturally when relevant; don't recite it unprompted:\n" + past
+        )
+
+    def _answer(self, message: str) -> str:
         if not self.client:
             return _offline(message)
 
@@ -102,7 +137,7 @@ class Jarvis:
             resp = self.client.messages.create(
                 model=MODEL,
                 max_tokens=1024,
-                system=SYSTEM,
+                system=self._system(),
                 tools=self._tool_specs(),
                 messages=self.history,
             )

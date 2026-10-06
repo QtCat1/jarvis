@@ -155,6 +155,21 @@ def joke(_: str = "") -> str:
     return random.choice(_JOKES)
 
 
+def recall(query: str = "") -> str:
+    """What was said in earlier conversations (kept for one week)."""
+    from . import memory
+
+    return memory.recall(query)
+
+
+def clear_memory(_: str = "") -> str:
+    """Erase all saved conversation memory."""
+    from . import memory
+
+    n = memory.clear()
+    return f"Done, sir. I've forgotten {n} saved message{'s' if n != 1 else ''}."
+
+
 def status_report(_: str = "") -> str:
     """Movie-style systems check."""
     return (
@@ -180,6 +195,8 @@ def update_self(_: str = "") -> str:
 
 
 TOOLS = {
+    "recall": (recall, "Look up what the user said in past conversations from the last 7 days. Input: day or topic, e.g. 'yesterday' or 'about the weather'."),
+    "clear_memory": (clear_memory, "Erase the saved conversation memory. Only when the user explicitly asks to forget everything. No input."),
     "update_self": (update_self, "Update Jarvis to the newest version from GitHub and restart. No input."),
     "weather": (weather, "Current weather. Input: city name."),
     "wiki": (wiki, "Wikipedia summary. Input: topic."),

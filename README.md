@@ -60,6 +60,18 @@ files from https://github.com/QtCat1/jarvis, keeps a backup of anything it repla
   (Contents: Read-only), then save it as a one-line text file named `.jarvis_token` in the
   Jarvis folder (or set `JARVIS_GITHUB_TOKEN`).
 
+## Memory (one week)
+
+Jarvis remembers your conversations for 7 days and then forgets them automatically. They are
+saved only on your computer, in `.jarvis_memory.jsonl` in your home folder, so updates never
+touch them. API keys and GitHub tokens are blanked out before saving.
+
+- Offline: ask "what did we talk about yesterday", "what did we say about the router", or
+  "what did we talk about today".
+- With `ANTHROPIC_API_KEY`: Claude is given the past week as background, so it can use it
+  naturally in conversation.
+- Say "forget everything" to erase it all, or delete the file.
+
 ## Shortcuts
 
 - `start-jarvis.bat` opens the HUD, `start-jarvis-phone.bat` opens it for your phone.
