@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
@@ -111,6 +112,7 @@ def apply_update(log=print, timeout: int = 60) -> str:
 
     backup = PROJECT_ROOT / "_backup_before_update" / time.strftime("%Y%m%d-%H%M%S")
     changed = added = 0
+    reqs_changed = False
     tmp = Path(tempfile.mkdtemp())
     try:
         zf.extractall(tmp)
@@ -133,12 +135,22 @@ def apply_update(log=print, timeout: int = 60) -> str:
                 added += 1
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(new_bytes)
+            if rel.as_posix() == "requirements.txt":
+                reqs_changed = True
     except Exception as e:
         LAST_ERROR = f"couldn't write the new files ({e})"
         return "error"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    if reqs_changed:  # best effort: a new version may need new libraries
+        try:
+            subprocess.call(
+                [sys.executable, "-m", "pip", "install", "-q", "-r", str(PROJECT_ROOT / "requirements.txt")],
+                timeout=300,
+            )
+        except Exception:
+            pass
     if not (changed or added):
         return "current"
     log(f"Updated: {changed} file(s) changed, {added} new. Old versions kept in {backup}")

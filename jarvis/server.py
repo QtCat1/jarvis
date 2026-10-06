@@ -41,6 +41,23 @@ def _auto_update_loop() -> None:
             u.schedule_restart(0.5)
 
 
+def _stable_pin() -> str:
+    """Same PIN every start (kept in your home folder) so the phone stays unlocked after auto-updates."""
+    f = Path.home() / ".jarvis_pin"
+    try:
+        p = f.read_text().strip()
+        if len(p) == 6 and p.isdigit():
+            return p
+    except OSError:
+        pass
+    p = "".join(secrets.choice("0123456789") for _ in range(6))
+    try:
+        f.write_text(p)
+    except OSError:
+        pass
+    return p
+
+
 def lan_ip() -> str:
     """Best-effort local network address of this computer."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -82,7 +99,7 @@ class Handler(BaseHTTPRequestHandler):
                         b"Open the full link shown on your computer (it ends with ?pin=...).</h2>",
                         "text/html; charset=utf-8",
                     )
-                headers["Set-Cookie"] = f"{COOKIE}={PIN}; Path=/; HttpOnly; SameSite=Strict"
+                headers["Set-Cookie"] = f"{COOKIE}={PIN}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict"
             self._send(200, HUD.read_bytes(), "text/html; charset=utf-8", headers)
         elif url.path == "/api/status":
             if not self._cookie_ok():
@@ -115,7 +132,7 @@ def serve(port: int = 8765, lan: bool = False) -> None:
     global PIN
     host = "0.0.0.0" if lan else "127.0.0.1"
     if lan:
-        PIN = "".join(secrets.choice("0123456789") for _ in range(6))
+        PIN = _stable_pin()
     srv = ThreadingHTTPServer((host, port), Handler)
     threading.Thread(target=_auto_update_loop, daemon=True).start()
     print(f"\nJarvis HUD  (mode: {_jarvis.mode})   Ctrl+C to stop")
