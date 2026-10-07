@@ -1,4 +1,4 @@
-"""Command-line interface: `python -m jarvis [--hud] [--lan] [--voice] [--update]`
+"""Command-line interface: `python -m jarvis [--hud] [--lan] [--voice] [--update] [--setup]`
 
 Running Jarvis starts a small supervisor that (1) checks GitHub for a newer version,
 (2) starts the real Jarvis, and (3) restarts it automatically after an update.
@@ -83,6 +83,10 @@ def _run(argv: list) -> None:
 
 def main() -> None:
     argv = sys.argv[1:]
+    if "--setup" in argv:
+        from .keys import setup
+
+        sys.exit(setup())
     if "--update" in argv:
         from .update import update
 

@@ -17,7 +17,7 @@ RETENTION_DAYS = 7
 MAX_TEXT = 600          # characters kept per message
 MAX_CONTEXT_CHARS = 6000  # how much history is shown to Claude
 
-_SECRET = re.compile(r"(sk-[A-Za-z0-9_\-]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})")
+_SECRET = re.compile(r"(sk-[A-Za-z0-9_\-]{10,}|xai-[A-Za-z0-9_\-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})")
 _DAY = 86400
 
 

@@ -60,6 +60,40 @@ files from https://github.com/QtCat1/jarvis, keeps a backup of anything it repla
   (Contents: Read-only), then save it as a one-line text file named `.jarvis_token` in the
   Jarvis folder (or set `JARVIS_GITHUB_TOKEN`).
 
+## Brains: Claude and Grok
+
+Jarvis can think with Claude (Anthropic) or Grok (xAI). Both need an **API key**. A paid or
+free Grok/Claude *website* login is not the same thing: keys come from console.x.ai (Grok)
+and console.anthropic.com (Claude), and API use is billed separately.
+
+Run `setup-keys.bat` (or `python -m jarvis --setup`) and paste a key. Keys are saved only on
+your computer (`.jarvis_keys.json` in your home folder), never in the Jarvis folder or GitHub.
+
+- Say **"use grok"** or **"use claude"** to switch. **"ask grok ..."** asks the other brain once.
+- Grok defaults to model `grok-4.7` (from xAI's docs). Change it with the environment variable
+  `JARVIS_GROK_MODEL`, and the web address with `XAI_BASE_URL`.
+
+## Teaching Jarvis new skills
+
+Needs a Claude or Grok key. Say things like:
+
+- "Jarvis, learn how to check bitcoin prices"
+- "Jarvis, learn how to convert currencies"
+
+Jarvis has the AI write a small Python file (a *skill*), checks it, and tells you what it does.
+**Nothing is installed until you say "approve ..."**. You can also say "show the code", "reject ...",
+"list skills", or "remove skill ...". An approved skill works immediately, with no restart, and
+is stored in `.jarvis_skills` in your home folder, so GitHub updates never erase it.
+
+How it is kept safe: you approve every skill (this is handled before any AI sees your words);
+a checker rejects code that touches files, runs programs or imports anything outside a short
+safe list; each skill runs in a separate process without your API keys, with a time limit; and
+Jarvis's own updater, server and supervisor cannot be changed by skills. The checker is a
+guard rail, not a perfect sandbox, so use "show the code" for anything you are unsure about.
+
+Skills can look things up, calculate and explain. They are told never to place trades, orders,
+payments or messages, and anything about money or health ends with a "not advice" note.
+
 ## Memory (one week)
 
 Jarvis remembers your conversations for 7 days and then forgets them automatically. They are
